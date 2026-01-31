@@ -118,6 +118,10 @@ msg_info() { echo -e "  ${C}ℹ${NC} ${DIM}$1${NC}"; }
 prompt() {
   echo -ne "  ${M}▸${NC} $1"
   read -r REPLY
+  if [ "$REPLY" = "z" ] || [ "$REPLY" = "Z" ]; then
+    return 1
+  fi
+  return 0
 }
 
 # bare repo 확인
@@ -170,7 +174,7 @@ create_worktree() {
   
   # 폴더명 입력
   echo ""
-  prompt "폴더명 입력 ${DIM}(취소: Enter)${NC}: "
+  prompt "폴더명 입력 ${DIM}(취소: Enter, 이전: z)${NC}: " || return
   local folder="$REPLY"
   
   if [ -z "$folder" ]; then
@@ -191,7 +195,7 @@ create_worktree() {
   done
   echo -e "    ${C} n.${NC} ${C}새 브랜치 생성${NC}"
   echo ""
-  prompt "브랜치 번호/이름 ${DIM}(n: 새 브랜치)${NC}: "
+  prompt "브랜치 번호/이름 ${DIM}(n: 새 브랜치, z: 이전)${NC}: " || return
   local branch_input="$REPLY"
   
   if [ "$branch_input" = "n" ] || [ "$branch_input" = "N" ]; then
@@ -207,7 +211,7 @@ create_worktree() {
       printf "    ${DIM}%2d.${NC} %s%b\n" $((i+1)) "${branches[$i]}" "$marker"
     done
     echo ""
-    prompt "기반 브랜치 ${DIM}(Enter: $DEFAULT_BASE_BRANCH)${NC}: "
+    prompt "기반 브랜치 ${DIM}(Enter: $DEFAULT_BASE_BRANCH, z: 이전)${NC}: " || return
     local base_input="$REPLY"
     
     if [ -z "$base_input" ]; then
@@ -224,7 +228,7 @@ create_worktree() {
     msg_info "제안: ${C}$suggested_branch${NC}"
     msg_info "예시: feat/login, fix/bug-123, issue/576"
     echo ""
-    prompt "브랜치 이름 ${DIM}(Enter: 제안 사용)${NC}: "
+    prompt "브랜치 이름 ${DIM}(Enter: 제안 사용, z: 이전)${NC}: " || return
     local new_branch="$REPLY"
     
     [ -z "$new_branch" ] && new_branch="$suggested_branch"
@@ -235,7 +239,7 @@ create_worktree() {
     echo -e "    ${ICO_BRANCH} 브랜치: ${BOLD}$new_branch${NC}"
     echo -e "    ${ICO_ARROW} 분기:   ${DIM}$base_branch${NC} ${ICO_ARROW} ${C}$new_branch${NC}"
     echo ""
-    prompt "진행할까요? ${DIM}(Y/n)${NC}: "
+    prompt "진행할까요? ${DIM}(Y/n, z: 이전)${NC}: " || return
     
     if [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
       msg_warn "취소됨"
@@ -290,7 +294,7 @@ create_worktree() {
   # symlink 제안
   if [ ${#SYMLINKS[@]} -gt 0 ]; then
     echo ""
-    prompt "설정된 파일들도 연결할까요? ${DIM}(Y/n)${NC}: "
+    prompt "설정된 파일들도 연결할까요? ${DIM}(Y/n, z: 이전)${NC}: " || return
     if [ "$REPLY" != "n" ] && [ "$REPLY" != "N" ]; then
       link_files "$folder"
     fi
@@ -323,16 +327,16 @@ link_files() {
       printf "    ${DIM}%2d.${NC} %s\n" $((i+1)) "${worktrees[$i]}"
     done
     echo ""
-    prompt "번호 입력: "
+    prompt "번호 입력 ${DIM}(z: 이전)${NC}: " || return
     local idx="$REPLY"
-    
+
     if ! [[ "$idx" =~ ^[0-9]+$ ]] || [ "$idx" -lt 1 ] || [ "$idx" -gt "${#worktrees[@]}" ]; then
       msg_warn "취소됨"
       return
     fi
     folder="${worktrees[$((idx-1))]}"
   fi
-  
+
   local worktree_path="$ROOT_DIR/$folder"
   
   if [ ! -d "$worktree_path" ]; then
@@ -401,7 +405,7 @@ remove_worktree() {
     printf "    ${DIM}%2d.${NC} %s ${C}(%s)${NC}\n" $((i+1)) "${worktrees[$i]}" "$branch"
   done
   echo ""
-  prompt "번호 입력: "
+  prompt "번호 입력 ${DIM}(z: 이전)${NC}: " || return
   local idx="$REPLY"
   
   if ! [[ "$idx" =~ ^[0-9]+$ ]] || [ "$idx" -lt 1 ] || [ "$idx" -gt "${#worktrees[@]}" ]; then
@@ -418,8 +422,8 @@ remove_worktree() {
   echo -e "    ${ICO_FOLDER} $folder"
   echo -e "    ${ICO_BRANCH} $branch"
   echo ""
-  prompt "${R}삭제 진행? (y/N)${NC}: "
-  
+  prompt "${R}삭제 진행? (y/N, z: 이전)${NC}: " || return
+
   if [ "$REPLY" != "y" ]; then
     msg_warn "취소됨"
     return
@@ -443,7 +447,7 @@ remove_worktree() {
     # 브랜치 삭제 여부
     if [ -n "$branch" ] && [ "$is_protected" = false ]; then
       echo ""
-      prompt "브랜치 '$branch'도 삭제? ${DIM}(y/N)${NC}: "
+      prompt "브랜치 '$branch'도 삭제? ${DIM}(y/N, z: 이전)${NC}: " || return
       if [ "$REPLY" = "y" ]; then
         git -C "$ROOT_DIR/$BARE_DIR" branch -D "$branch" &>/dev/null
         msg_ok "브랜치 삭제 완료"
@@ -481,7 +485,7 @@ init_config() {
   
   if [ -f "$CONFIG_FILE" ]; then
     msg_warn "이미 .worktree.config 파일이 존재합니다"
-    prompt "덮어쓸까요? ${DIM}(y/N)${NC}: "
+    prompt "덮어쓸까요? ${DIM}(y/N, z: 이전)${NC}: " || return
     if [ "$REPLY" != "y" ]; then
       msg_warn "취소됨"
       return
@@ -489,21 +493,21 @@ init_config() {
   fi
   
   section "기본 설정"
-  
-  prompt "Bare repo 디렉토리 ${DIM}(기본: .bare)${NC}: "
+
+  prompt "Bare repo 디렉토리 ${DIM}(기본: .bare, z: 이전)${NC}: " || return
   local bare_dir="${REPLY:-.bare}"
-  
-  prompt "기본 base 브랜치 ${DIM}(기본: main)${NC}: "
+
+  prompt "기본 base 브랜치 ${DIM}(기본: main, z: 이전)${NC}: " || return
   local default_base="${REPLY:-main}"
-  
+
   msg_info "브랜치 prefix 예시: feat/, fix/, feature/, hotfix/"
-  prompt "기본 브랜치 prefix ${DIM}(기본: feat/)${NC}: "
+  prompt "기본 브랜치 prefix ${DIM}(기본: feat/, z: 이전)${NC}: " || return
   local default_prefix="${REPLY:-feat/}"
-  
+
   section "Symlink 설정"
   msg_info "env 파일이 들어갈 폴더를 지정하세요"
   msg_info "예: backend, frontend, apps/web 등"
-  prompt "env 대상 폴더 ${DIM}(Enter: 루트)${NC}: "
+  prompt "env 대상 폴더 ${DIM}(Enter: 루트, z: 이전)${NC}: " || return
   local env_folder="${REPLY:-.}"
 
   local symlinks_config=""
@@ -523,7 +527,7 @@ init_config() {
   echo ""
 
   while true; do
-    prompt "symlink 추가: "
+    prompt "symlink 추가 ${DIM}(빈 줄: 종료, z: 이전)${NC}: " || return
     [ -z "$REPLY" ] && break
     if [[ "$REPLY" == *":"* ]]; then
       symlinks_config+="  \"$REPLY\"\n"
@@ -556,26 +560,19 @@ EOF
   source "$CONFIG_FILE"
 }
 
-# 6. PR 리뷰
-pr_review() {
-  # gh CLI 확인
-  if ! command -v gh &>/dev/null; then
-    msg_err "gh CLI가 설치되어 있지 않습니다"
-    msg_info "설치: brew install gh"
-    return
-  fi
+# 6. PR 리뷰 - 상태별 PR 목록 표시 및 워크트리 생성
+pr_list_by_state() {
+  local state="$1"  # open 또는 closed
+  local state_label="$2"
 
-  check_bare_repo || return
+  section "${state_label} PR 목록"
 
-  box "${ICO_REVIEW} PR 리뷰"
-
-  section "PR 목록"
-  # PR 목록 조회
-  local pr_list=$(gh pr list --limit 20 --json number,title,headRefName,author \
-    --template '{{range .}}{{.number}}'$'\t''{{.title}}'$'\t''{{.headRefName}}'$'\t''{{.author.login}}{{"\n"}}{{end}}')
+  # PR 목록 조회 (bare repo 디렉토리에서 실행)
+  local pr_list=$(cd "$ROOT_DIR/$BARE_DIR" && gh pr list --state "$state" --limit 20 --json number,title,headRefName,author \
+    --template '{{range .}}{{.number}}'$'\t''{{.title}}'$'\t''{{.headRefName}}'$'\t''{{.author.login}}{{"\n"}}{{end}}' 2>/dev/null)
 
   if [ -z "$pr_list" ]; then
-    msg_warn "열린 PR이 없습니다"
+    msg_warn "${state_label} PR이 없습니다"
     return
   fi
 
@@ -587,7 +584,7 @@ pr_review() {
   done <<< "$pr_list"
 
   echo ""
-  prompt "몇 번 PR로 가시겠습니까? ${DIM}(취소: Enter)${NC}: "
+  prompt "몇 번 PR로 가시겠습니까? ${DIM}(취소: Enter, z: 이전)${NC}: " || return
   local selection="$REPLY"
 
   [ -z "$selection" ] && { msg_warn "취소됨"; return; }
@@ -604,10 +601,10 @@ pr_review() {
 
   # PR 상세 정보 표시
   section "PR #$pr_number 상세"
-  gh pr view "$pr_number"
+  (cd "$ROOT_DIR/$BARE_DIR" && gh pr view "$pr_number")
 
   echo ""
-  prompt "이 PR로 워크트리를 생성하시겠습니까? ${DIM}(Y/n)${NC}: "
+  prompt "이 PR로 워크트리를 생성하시겠습니까? ${DIM}(Y/n, z: 이전)${NC}: " || return
 
   if [ "$REPLY" = "n" ] || [ "$REPLY" = "N" ]; then
     msg_warn "취소됨"
@@ -635,7 +632,7 @@ pr_review() {
     # symlink 연결 제안
     if [ ${#SYMLINKS[@]} -gt 0 ]; then
       echo ""
-      prompt "설정된 파일들도 연결할까요? ${DIM}(Y/n)${NC}: "
+      prompt "설정된 파일들도 연결할까요? ${DIM}(Y/n, z: 이전)${NC}: " || return
       if [ "$REPLY" != "n" ] && [ "$REPLY" != "N" ]; then
         link_files "$folder"
       fi
@@ -643,6 +640,52 @@ pr_review() {
   else
     msg_err "워크트리 생성 실패"
   fi
+}
+
+# PR 리뷰 서브메뉴 - open/closed 선택
+pr_review_submenu() {
+  while true; do
+    box "${ICO_REVIEW} PR 리뷰"
+
+    echo ""
+    echo -e "    ${BOLD}1${NC}  ${G}●${NC} Open PR"
+    echo -e "    ${BOLD}2${NC}  ${R}●${NC} Closed PR"
+    echo ""
+    echo -e "    ${DIM}z${NC}  ${DIM}이전 메뉴${NC}"
+    echo ""
+
+    prompt "선택: " || return
+
+    case "$REPLY" in
+      1)
+        pr_list_by_state "open" "Open"
+        echo ""
+        read -p "  Enter를 눌러 계속..."
+        ;;
+      2)
+        pr_list_by_state "closed" "Closed"
+        echo ""
+        read -p "  Enter를 눌러 계속..."
+        ;;
+      *)
+        msg_warn "잘못된 선택"
+        ;;
+    esac
+  done
+}
+
+# 6. PR 리뷰 메인
+pr_review() {
+  # gh CLI 확인
+  if ! command -v gh &>/dev/null; then
+    msg_err "gh CLI가 설치되어 있지 않습니다"
+    msg_info "설치: brew install gh"
+    return
+  fi
+
+  check_bare_repo || return
+
+  pr_review_submenu
 }
 
 # 메인 메뉴
@@ -678,6 +721,7 @@ main_menu() {
   echo -e "    ${DIM}q${NC}  ${DIM}종료${NC}"
   echo ""
   echo -e "  ${DIM}───────────────────────────────────────────${NC}"
+  echo -e "  ${DIM}💡 하위 메뉴에서 'z' 입력 시 이전 메뉴로${NC}"
   echo ""
   prompt "선택: "
   

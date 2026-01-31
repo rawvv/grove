@@ -1,16 +1,9 @@
 # bare REPOGITORY GUIDE
 
-## 사용하는 이유
-
-### 장점
-
-- brach switch 비용을 줄이기 위해서,
-- AI를 각각의 브런치에서 독립적으로 실행하여 능률을 올림
-
-### 단점
-
-- 오히려 복잡하다고 느낄 수 있음
-- 매번 pnpm install env 연결이 귀찮을 수 있음.
+## 설치 방법 (택 1)
+- Download
+- git clone "https://github.com/ho8ae/repoName-bare.git" 
+  - clone 받은 폴더 내부 .git 삭제 
 
 ## 기본 명령어
 
