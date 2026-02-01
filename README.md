@@ -125,6 +125,3 @@ SYMLINKS=(
 - Git >= 2.5.0
 - GitHub CLI (`gh`) - PR 리뷰 기능 사용 시
 
-## 라이선스
-
-MIT
