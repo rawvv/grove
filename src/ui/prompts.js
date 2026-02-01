@@ -80,15 +80,17 @@ async function select(message, choices) {
  * @returns {Promise<{type: 'existing'|'new', branch: string}|null>}
  */
 async function selectBranch(branches, defaultBranch = 'main') {
-  const choices = branches.map((branch, index) => ({
-    title: branch === defaultBranch ? `${branch} ${colors.dim('← 기본')}` : branch,
-    value: { type: 'existing', branch }
-  }));
-
-  choices.push({
-    title: colors.info('새 브랜치 생성'),
-    value: { type: 'new', branch: '' }
-  });
+  // "새 브랜치 생성"을 첫 번째(기본 선택)로 배치
+  const choices = [
+    {
+      title: colors.info('새 브랜치 생성'),
+      value: { type: 'new', branch: '' }
+    },
+    ...branches.map((branch) => ({
+      title: branch === defaultBranch ? `${branch} ${colors.dim('← 분기 기본')}` : branch,
+      value: { type: 'existing', branch }
+    }))
+  ];
 
   const response = await prompts({
     type: 'select',
