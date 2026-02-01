@@ -1,13 +1,14 @@
 {
   "name": "@rawvv/grove",
-  "version": "0.1.0-beta.1",
+  "version": "0.1.1-beta.1",
   "description": "Git bare repository 기반 워크트리 관리 CLI 도구",
   "main": "src/index.js",
   "bin": {
     "grove": "./bin/cli.js"
   },
   "scripts": {
-    "test": "echo \"No tests yet\""
+    "test": "echo \"No tests yet\"",
+    "semantic-release": "semantic-release"
   },
   "keywords": [
     "git",
@@ -37,8 +38,10 @@
     "node": ">=14.0.0"
   },
   "publishConfig": {
-    "access": "public",
-    "tag": "beta"
+    "access": "public"
+  },
+  "devDependencies": {
+    "semantic-release": "^24.0.0"
   },
   "dependencies": {
     "chalk": "^4.1.2",
@@ -47,5 +50,20 @@
     "fs-extra": "^11.2.0",
     "ora": "^5.4.1",
     "prompts": "^2.4.2"
+  },
+  "release": {
+    "branches": [
+      "main",
+      {
+        "name": "beta",
+        "prerelease": true
+      }
+    ],
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/npm",
+      "@semantic-release/github"
+    ]
   }
 }
