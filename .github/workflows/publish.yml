@@ -1,13 +1,8 @@
 name: Publish to npm
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'package.json'
-      - 'src/**'
-      - 'bin/**'
+  release:
+    types: [published]
 
 jobs:
   publish:
@@ -26,30 +21,13 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Check if version changed
-        id: version
-        run: |
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          NPM_VERSION=$(npm view @rawvv/grove version 2>/dev/null || echo "0.0.0")
-          if [ "$PACKAGE_VERSION" != "$NPM_VERSION" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
-            echo "version=$PACKAGE_VERSION" >> $GITHUB_OUTPUT
-          else
-            echo "changed=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Publish to npm
-        if: steps.version.outputs.changed == 'true'
         run: |
-          VERSION=${{ steps.version.outputs.version }}
-          if [[ "$VERSION" == *"beta"* ]]; then
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" == *"beta"* ]] || [[ "$VERSION" == *"alpha"* ]]; then
             npm publish --access public --tag beta
           else
             npm publish --access public
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Skip publish
-        if: steps.version.outputs.changed == 'false'
-        run: echo "Version unchanged, skipping publish"
