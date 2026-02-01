@@ -4,24 +4,28 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: write
+  id-token: write  # OIDC 인증용
+
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm  # OIDC 필수 (11.5.1+)
+        run: npm install -g npm@^11
 
       - name: Get version from tag
         id: version
@@ -32,8 +36,7 @@ jobs:
           echo "Version: $VERSION"
 
       - name: Update package.json version
-        run: |
-          npm version ${{ steps.version.outputs.version }} --no-git-tag-version
+        run: npm version ${{ steps.version.outputs.version }} --no-git-tag-version
 
       - name: Install dependencies
         run: npm install
@@ -42,12 +45,10 @@ jobs:
         run: |
           VERSION=${{ steps.version.outputs.version }}
           if [[ "$VERSION" == *"beta"* ]] || [[ "$VERSION" == *"alpha"* ]]; then
-            npm publish --access public --tag beta
+            npm publish --access public --tag beta --provenance
           else
-            npm publish --access public
+            npm publish --access public --provenance
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Commit and push version update
         run: |
