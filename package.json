@@ -1,6 +1,6 @@
 {
   "name": "@rawvv/grove",
-  "version": "0.1.1-beta",
+  "version": "0.1.2-beta",
   "description": "Git bare repository 기반 워크트리 관리 CLI 도구",
   "main": "src/index.js",
   "bin": {
