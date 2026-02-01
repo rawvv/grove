@@ -1,0 +1,51 @@
+{
+  "name": "git-grove",
+  "version": "0.1.0-beta.1",
+  "description": "Git bare repository 기반 워크트리 관리 CLI 도구",
+  "main": "src/index.js",
+  "bin": {
+    "git-grove": "./bin/cli.js"
+  },
+  "scripts": {
+    "test": "echo \"No tests yet\""
+  },
+  "keywords": [
+    "git",
+    "bare",
+    "worktree",
+    "cli",
+    "repository",
+    "workflow",
+    "branch",
+    "grove"
+  ],
+  "author": "raw",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ho8ae/git-grove.git"
+  },
+  "homepage": "https://github.com/ho8ae/git-grove#readme",
+  "bugs": {
+    "url": "https://github.com/ho8ae/git-grove/issues"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "tag": "beta"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^12.0.0",
+    "execa": "^5.1.1",
+    "fs-extra": "^11.2.0",
+    "ora": "^5.4.1",
+    "prompts": "^2.4.2"
+  }
+}
