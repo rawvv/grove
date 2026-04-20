@@ -54,9 +54,10 @@ function section(title) {
 
 // 헤더 출력
 function header() {
+  const version = require('../../package.json').version;
   console.log('');
   console.log(`  ${colors.bold(colors.info('╭─────────────────────────────╮'))}`);
-  console.log(`  ${colors.bold(colors.info('│'))}  ${colors.bold(`${icons.tree} GROVE`)}      ${colors.dim('v0.1.0-beta')}  ${colors.bold(colors.info('│'))}`);
+  console.log(`  ${colors.bold(colors.info('│'))}  ${colors.bold(`${icons.tree} GROVE`)}      ${colors.dim(`v${version}`)}  ${colors.bold(colors.info('│'))}`);
   console.log(`  ${colors.bold(colors.info('╰─────────────────────────────╯'))}`);
 }
 

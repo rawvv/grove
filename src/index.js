@@ -8,6 +8,7 @@ const { list } = require('./commands/list');
 const { link } = require('./commands/link');
 const { config } = require('./commands/config');
 const { prReview } = require('./commands/pr-review');
+const { help } = require('./commands/help');
 
 /**
  * 명령어 실행
@@ -33,6 +34,9 @@ async function executeCommand(command) {
         break;
       case 'pr-review':
         await prReview();
+        break;
+      case 'help':
+        await help();
         break;
       case 'quit':
         console.log(`\n  👋 ${colors.dim('Bye!')}\n`);

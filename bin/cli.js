@@ -58,4 +58,10 @@ program
   .description('PR 리뷰를 위한 워크트리 생성')
   .action(() => runCommand('pr-review'));
 
+// help: 도움말
+program
+  .command('help')
+  .description('커맨드 목록 및 설정 가이드')
+  .action(() => runCommand('help'));
+
 program.parse();
