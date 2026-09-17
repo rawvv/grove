@@ -7,6 +7,7 @@ const { deleteBranch } = require('../services/branch');
 const { fetchOrigin, isBareRepoExists } = require('../services/git');
 const { findRootDir, loadConfig, getBareDir } = require('../utils/config-file');
 const { isProtectedBranch } = require('../utils/validators');
+const { readEnvWorktree } = require('../services/docker');
 
 /**
  * 워크트리 삭제 명령어 (다중 선택, 로컬 브랜치 동시 삭제)
@@ -110,6 +111,14 @@ async function remove() {
 
   blank();
   msg.info(`${targets.length - failed}/${targets.length} 처리 완료`);
+
+  // 단일 컨테이너 모드: 컨테이너가 바라보던 워크트리가 사라졌으면 안내
+  const watched = loadConfig(rootDir).DOCKER_MODE === 'single' && readEnvWorktree(rootDir);
+  if (watched && targets.some(t => t.folder === watched)) {
+    blank();
+    msg.warn(`컨테이너가 바라보던 워크트리(${colors.bold(watched)})가 삭제됐습니다`);
+    console.log(`    ${colors.info('grove cd <이름>')} ${colors.dim('으로 다른 워크트리를 바라보게 하세요')}`);
+  }
 }
 
 module.exports = { remove };

@@ -80,6 +80,17 @@ function upsertEnv(content, key, value) {
   return `${content}${sep}${line}\n`;
 }
 
+/**
+ * 컨테이너가 현재 바라보는 워크트리 폴더명 (.env의 GROVE_WORKTREE)
+ * @returns {string|null}
+ */
+function readEnvWorktree(rootDir) {
+  const envPath = path.join(rootDir, '.env');
+  if (!fs.existsSync(envPath)) return null;
+  const m = fs.readFileSync(envPath, 'utf-8').match(new RegExp(`^${ENV_KEY}=(.*)$`, 'm'));
+  return m ? m[1].trim() : null;
+}
+
 function writeEnv(rootDir, folder) {
   const envPath = path.join(rootDir, '.env');
   const current = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf-8') : '';
@@ -124,4 +135,4 @@ async function switchDocker(rootDir, folder, { quiet = false } = {}) {
   }
 }
 
-module.exports = { parseCompose, upsertEnv, generateRootCompose, setupSingleMode, switchDocker, ENV_KEY };
+module.exports = { parseCompose, upsertEnv, generateRootCompose, setupSingleMode, switchDocker, readEnvWorktree, ENV_KEY };

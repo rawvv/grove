@@ -2,6 +2,7 @@ const prompts = require('prompts');
 const { box, section, msg, colors, blank } = require('../ui/output');
 const { confirm } = require('../ui/prompts');
 const { findRootDir, getBareDir, loadConfig, saveConfig } = require('../utils/config-file');
+const { getWorktreesExcludeBare } = require('../services/worktree');
 const { setupSingleMode, ENV_KEY } = require('../services/docker');
 
 const REASONS = {
@@ -58,6 +59,10 @@ async function docker() {
 
   if (mode === 'single') {
     section('다음 단계');
+    const worktrees = await getWorktreesExcludeBare(getBareDir(rootDir)).catch(() => []);
+    if (worktrees.length === 0) {
+      console.log(`    ${colors.dim('아직 워크트리가 없습니다.')} ${colors.info('grove create')} ${colors.dim('로 첫 워크트리를 만들면 그때 컨테이너가 처음 뜹니다.')}`);
+    }
     console.log(`    ${colors.dim('docker 명령은 항상 루트 폴더에서 실행하세요. 워크트리 안에서 up 하면 컨테이너가 하나 더 생깁니다.')}`);
     console.log(`    ${colors.info('grove cd <이름>')} ${colors.dim('또는')} ${colors.info('grove create')} ${colors.dim('가 자동으로 up -d 합니다')}`);
   }

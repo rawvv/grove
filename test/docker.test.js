@@ -36,3 +36,12 @@ test('generateRootCompose: extends 참조 생성', () => {
   assert.match(out, /volumes:\n  data:/);
   assert.doesNotMatch(out, /networks:/);
 });
+
+test('readEnvWorktree: .env에서 GROVE_WORKTREE 읽기', () => {
+  const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+  const { readEnvWorktree } = require('../src/services/docker');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'grove-'));
+  assert.equal(readEnvWorktree(dir), null);
+  fs.writeFileSync(path.join(dir, '.env'), 'A=1\nGROVE_WORKTREE=feat-x\n');
+  assert.equal(readEnvWorktree(dir), 'feat-x');
+});
