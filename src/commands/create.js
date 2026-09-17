@@ -11,6 +11,7 @@ const { copyFilesToWorktree } = require('../services/symlink');
 const { fetchOrigin, isBareRepoExists } = require('../services/git');
 const { findRootDir, loadConfig, getBareDir, getActivePath, setActivePath } = require('../utils/config-file');
 const { validateFolderName } = require('../utils/validators');
+const { switchDocker } = require('../services/docker');
 const { folderExists } = require('../utils/validators');
 
 /**
@@ -228,6 +229,15 @@ async function create() {
 
   // active worktree 업데이트
   setActivePath(rootDir, path.join(rootDir, folder));
+
+  // 단일 컨테이너 모드: 루트에서 compose up
+  if (config.DOCKER_MODE === 'single') {
+    blank();
+    section('Docker 전환');
+    const docker = await switchDocker(rootDir, folder);
+    if (docker.ok) msg.ok(`컨테이너가 ${colors.bold(folder)} 워크트리를 바라봅니다`);
+    else msg.err(`docker compose up 실패: ${docker.error}`);
+  }
 }
 
 module.exports = { create };

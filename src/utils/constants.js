@@ -23,6 +23,7 @@ const MENU_CHOICES = [
   { title: '🗑️   워크트리 삭제', value: 'remove' },
   { title: '📋  목록 보기', value: 'list' },
   { title: '⚙️   설정 초기화', value: 'config' },
+  { title: '🐳  Docker 모드 설정', value: 'docker' },
   { title: '🔍  PR 리뷰', value: 'pr-review' },
   { title: '종료', value: 'quit' }
 ];

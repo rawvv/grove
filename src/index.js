@@ -11,6 +11,7 @@ const { config } = require('./commands/config');
 const { prReview } = require('./commands/pr-review');
 const { help } = require('./commands/help');
 const { cd } = require('./commands/cd');
+const { docker } = require('./commands/docker');
 
 /**
  * 명령어 실행
@@ -37,6 +38,9 @@ async function executeCommand(command, arg) {
         break;
       case 'config':
         await config();
+        break;
+      case 'docker':
+        await docker();
         break;
       case 'pr-review':
         await prReview();

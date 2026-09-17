@@ -34,7 +34,8 @@ function loadConfig(rootDir = process.cwd()) {
     DEFAULT_BRANCH_PREFIX: DEFAULTS.BRANCH_PREFIX,
     FILES: [],
     PRE_SWITCH_COMMANDS: [],
-    POST_CREATE_COMMANDS: []
+    POST_CREATE_COMMANDS: [],
+    DOCKER_MODE: ''
   };
 
   if (!fs.existsSync(configPath)) {
@@ -55,6 +56,10 @@ function loadConfig(rootDir = process.cwd()) {
     // DEFAULT_BRANCH_PREFIX 파싱
     const prefixMatch = content.match(/DEFAULT_BRANCH_PREFIX="([^"]+)"/);
     if (prefixMatch) config.DEFAULT_BRANCH_PREFIX = prefixMatch[1];
+
+    // DOCKER_MODE 파싱 (single | perWorktree | '')
+    const dockerMatch = content.match(/DOCKER_MODE="([^"]*)"/);
+    if (dockerMatch) config.DOCKER_MODE = dockerMatch[1];
 
     // FILES 파싱
     const filesMatch = content.match(/FILES=\(\s*([\s\S]*?)\s*\)/);
@@ -120,6 +125,7 @@ function saveConfig(config, rootDir = process.cwd()) {
 BARE_DIR="${config.BARE_DIR || DEFAULTS.BARE_DIR}"
 DEFAULT_BASE_BRANCH="${config.DEFAULT_BASE_BRANCH || DEFAULTS.BASE_BRANCH}"
 DEFAULT_BRANCH_PREFIX="${config.DEFAULT_BRANCH_PREFIX || DEFAULTS.BRANCH_PREFIX}"
+DOCKER_MODE="${config.DOCKER_MODE || ''}"
 
 FILES=(
 ${filesStr}

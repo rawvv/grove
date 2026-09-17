@@ -2,6 +2,7 @@ const prompts = require('prompts');
 const ora = require('ora');
 const { isGitInstalled, isValidGitUrl, isBareRepoExists, cloneBareRepo } = require('../services/git');
 const { config } = require('./config');
+const { docker } = require('./docker');
 const { colors, step, msg, blank } = require('../ui/output');
 
 /**
@@ -94,6 +95,12 @@ async function init() {
   if (configResponse.setupConfig) {
     await config();
   }
+
+  // ========================================
+  // Docker 모드 선택
+  // ========================================
+  console.log('');
+  await docker();
 
   // ========================================
   // 완료 메시지

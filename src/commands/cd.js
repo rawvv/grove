@@ -3,6 +3,7 @@ const { colors } = require('../ui/output');
 const { getWorktreesExcludeBare } = require('../services/worktree');
 const { isBareRepoExists } = require('../services/git');
 const { findRootDir, getBareDir, setActivePath } = require('../utils/config-file');
+const { switchDocker } = require('../services/docker');
 
 // stdout은 경로 전용 — 로그와 프롬프트는 전부 stderr로 보낸다
 const err = (text) => process.stderr.write(`  ${colors.error('✗')} ${text}\n`);
@@ -67,6 +68,8 @@ async function cd(query) {
   }
 
   setActivePath(rootDir, target.path);
+  const docker = await switchDocker(rootDir, target.name, { quiet: true });
+  if (docker.ok === false) err(`docker compose up 실패: ${docker.error}`);
   process.stdout.write(`${target.path}\n`);
 }
 

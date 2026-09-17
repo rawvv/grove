@@ -7,7 +7,7 @@
     "grove": "./bin/cli.js"
   },
   "scripts": {
-    "test": "echo \"No tests yet\"",
+    "test": "node --test",
     "lint": "eslint src bin",
     "lint:fix": "eslint src bin --fix"
   },

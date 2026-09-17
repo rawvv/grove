@@ -59,6 +59,9 @@ async function list() {
   console.log(`    ${colors.dim('기본 브랜치:')}   ${config.DEFAULT_BASE_BRANCH}`);
   console.log(`    ${colors.dim('브랜치 prefix:')} ${config.DEFAULT_BRANCH_PREFIX}`);
 
+  if (config.DOCKER_MODE) {
+    console.log(`    ${colors.dim('DOCKER_MODE:')} ${colors.dim(config.DOCKER_MODE)}`);
+  }
   if (config.PRE_SWITCH_COMMANDS && config.PRE_SWITCH_COMMANDS.length > 0) {
     blank();
     console.log(`    ${colors.dim('PRE_SWITCH:')}  ${colors.dim(config.PRE_SWITCH_COMMANDS.join(', '))}`);

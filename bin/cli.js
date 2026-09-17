@@ -53,6 +53,12 @@ program
   .description('설정 파일 초기화')
   .action(() => runCommand('config'));
 
+// docker: Docker 모드 설정
+program
+  .command('docker')
+  .description('Docker 모드 설정 (단일 컨테이너 / 워크트리별)')
+  .action(() => runCommand('docker'));
+
 // pr-review: PR 리뷰
 program
   .command('pr-review')

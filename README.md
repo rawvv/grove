@@ -124,9 +124,11 @@ grove cd              # 목록에서 선택
 |------|------|
 | **워크트리 생성** | 새 브랜치 또는 기존 브랜치로 워크트리 생성 |
 | **파일 복사** | `.env` 등 공통 파일을 워크트리에 복사 (docker bind mount 호환) |
+| **Docker 단일 컨테이너** | 컨테이너 1개를 유지하고 `grove cd`/`create` 시 바라보는 워크트리만 교체 |
 | **훅 시스템** | 워크트리 생성 전후 커스텀 명령 자동 실행 (docker-compose 등) |
 | **active 추적** | 현재 작업 중인 워크트리를 메뉴에서 바로 확인 |
 | **워크트리 이동** | `grove cd`로 워크트리 간 이동 (이름/브랜치 부분 일치) |
+| **Docker 모드 설정** | `grove docker`로 단일 컨테이너 / 워크트리별 컨테이너 선택 |
 | **워크트리 삭제** | 다중 선택 + 로컬 브랜치 동시 삭제, 머지 완료 항목 자동 선택 |
 | **PR 리뷰** | GitHub PR을 워크트리로 체크아웃 (`gh` CLI 필요) |
 | **새 버전 알림** | 업데이트 출시 시 메뉴에서 알림 표시 |
@@ -137,7 +139,8 @@ grove cd              # 목록에서 선택
 my-project/
 ├── .bare/                 # Git bare repository
 ├── .worktree.config       # 설정 파일
-├── .env                   # 공통 환경 변수 (복사 원본)
+├── .env                   # 공통 환경 변수 (복사 원본) + GROVE_WORKTREE
+├── docker-compose.yml     # grove가 생성 (단일 컨테이너 모드)
 ├── main/                  # main 브랜치 워크트리
 ├── feat-login/            # feature 브랜치 워크트리
 └── pr-123/                # PR 리뷰용 워크트리
@@ -151,6 +154,7 @@ my-project/
 BARE_DIR=".bare"
 DEFAULT_BASE_BRANCH="main"
 DEFAULT_BRANCH_PREFIX="feat/"
+DOCKER_MODE="single"   # single | perWorktree | ""
 
 # 워크트리 생성 시 복사할 파일 (소스:대상)
 FILES=(
@@ -172,6 +176,30 @@ POST_CREATE_COMMANDS=(
 > `POST_CREATE_COMMANDS` 실행 시 `COMPOSE_PROJECT_NAME`이 워크트리 폴더명으로 자동 설정됩니다. 여러 워크트리를 동시에 띄워도 컨테이너 이름이 충돌하지 않습니다.
 
 > 기존 `SYMLINKS` 키는 `FILES`로 변경되었습니다. 하위 호환을 위해 `SYMLINKS`도 계속 읽힙니다.
+
+## Docker 단일 컨테이너 모드
+
+워크트리를 만들 때마다 `compose up`으로 새 컨테이너가 생기는 대신, 컨테이너 하나를 유지하고 **바라보는 워크트리 폴더만 교체**합니다. DB 등 코드와 무관한 서비스는 재생성되지 않습니다.
+
+```bash
+grove docker        # 모드 선택 → 루트에 docker-compose.yml + .env 자동 생성
+grove cd feat-x     # GROVE_WORKTREE=feat-x 갱신 후 루트에서 docker compose up -d
+```
+
+grove가 생성하는 루트 `docker-compose.yml`은 레포의 compose 파일을 `extends`로 참조합니다. 상대경로(`.:/app`, `build: .`, `env_file`)가 `${GROVE_WORKTREE}` 폴더 기준으로 풀리므로 레포 파일은 수정하지 않습니다.
+
+```yaml
+services:
+  app:
+    extends:
+      file: ${GROVE_WORKTREE}/docker-compose.yml
+      service: app
+```
+
+- `grove init` 마지막 단계에서도 같은 선택지가 나옵니다. 워크트리가 없으면 bare repo의 HEAD에서 compose를 읽습니다.
+- `docker compose logs/exec/down` 같은 직접 명령은 **루트 폴더에서** 실행하세요. 워크트리 안에서 `up` 하면 컨테이너가 하나 더 생깁니다.
+- 워크트리마다 `node_modules`는 따로 필요합니다. 새 워크트리에서 한 번 `install` 하세요.
+- compose 파싱은 2-space 들여쓰기 블록 YAML만 지원합니다.
 
 ## 주의사항
 
