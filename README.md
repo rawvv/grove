@@ -197,6 +197,7 @@ services:
 ```
 
 - `grove init` 마지막 단계에서도 같은 선택지가 나옵니다. 워크트리가 없으면 bare repo의 HEAD에서 compose를 읽습니다.
+- compose의 `${VAR}` 보간값은 `<워크트리>/.env`에서 읽습니다. grove가 `up` 시 `--env-file`로 함께 넘기므로 직접 `up` 할 때는 `docker compose --env-file <워크트리>/.env --env-file .env up -d` 형태로 실행하세요.
 - `docker compose logs/exec/down` 같은 직접 명령은 **루트 폴더에서** 실행하세요. 워크트리 안에서 `up` 하면 컨테이너가 하나 더 생깁니다.
 - 워크트리마다 `node_modules`는 따로 필요합니다. 새 워크트리에서 한 번 `install` 하세요.
 - compose 파싱은 2-space 들여쓰기 블록 YAML만 지원합니다.

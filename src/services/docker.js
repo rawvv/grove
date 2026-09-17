@@ -118,6 +118,20 @@ async function setupSingleMode(rootDir, bareDir, { overwrite = false } = {}) {
 }
 
 /**
+ * compose 변수 보간용 --env-file 인자. 루트 .env는 프로젝트 폴더라 기본으로 읽히지만
+ * ${MYSQL_PASSWORD} 같은 값은 워크트리 .env에 있으므로 함께 넘긴다.
+ * 루트 .env를 뒤에 두어 GROVE_WORKTREE는 항상 루트 값이 이긴다.
+ * ponytail: 워크트리 루트의 .env만 본다. 하위 폴더 env가 필요하면 FILES 대상 경로를 순회
+ */
+function composeEnvArgs(rootDir, folder) {
+  const args = [];
+  const wtEnv = path.join(rootDir, folder, '.env');
+  if (fs.existsSync(wtEnv)) args.push('--env-file', wtEnv);
+  args.push('--env-file', path.join(rootDir, '.env'));
+  return args;
+}
+
+/**
  * 워크트리 전환: .env 갱신 후 루트에서 compose up
  * @param {boolean} [opts.quiet] - stdout을 비워야 할 때(grove cd) docker 출력을 stderr로
  */
@@ -125,7 +139,7 @@ async function switchDocker(rootDir, folder, { quiet = false } = {}) {
   if (loadConfig(rootDir).DOCKER_MODE !== 'single') return { skipped: true };
   writeEnv(rootDir, folder);
   try {
-    await execa('docker', ['compose', 'up', '-d'], {
+    await execa('docker', ['compose', ...composeEnvArgs(rootDir, folder), 'up', '-d'], {
       cwd: rootDir,
       stdio: quiet ? ['inherit', 2, 2] : 'inherit'
     });
@@ -135,4 +149,4 @@ async function switchDocker(rootDir, folder, { quiet = false } = {}) {
   }
 }
 
-module.exports = { parseCompose, upsertEnv, generateRootCompose, setupSingleMode, switchDocker, readEnvWorktree, ENV_KEY };
+module.exports = { parseCompose, upsertEnv, generateRootCompose, setupSingleMode, switchDocker, readEnvWorktree, composeEnvArgs, ENV_KEY };

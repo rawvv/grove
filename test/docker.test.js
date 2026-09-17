@@ -45,3 +45,14 @@ test('readEnvWorktree: .env에서 GROVE_WORKTREE 읽기', () => {
   fs.writeFileSync(path.join(dir, '.env'), 'A=1\nGROVE_WORKTREE=feat-x\n');
   assert.equal(readEnvWorktree(dir), 'feat-x');
 });
+
+test('composeEnvArgs: 워크트리 .env가 있으면 먼저, 루트 .env는 항상 마지막', () => {
+  const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+  const { composeEnvArgs } = require('../src/services/docker');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'grove-'));
+  assert.deepEqual(composeEnvArgs(root, 'wt'), ['--env-file', path.join(root, '.env')]);
+  fs.mkdirSync(path.join(root, 'wt'));
+  fs.writeFileSync(path.join(root, 'wt', '.env'), 'X=1');
+  assert.deepEqual(composeEnvArgs(root, 'wt'),
+    ['--env-file', path.join(root, 'wt', '.env'), '--env-file', path.join(root, '.env')]);
+});
