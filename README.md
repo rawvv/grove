@@ -68,7 +68,7 @@ grove
 
 ```bash
 grove create      # 워크트리 생성
-grove cd [이름]   # 워크트리로 이동 (아래 셸 설정 필요)
+grove cd [이름]   # 워크트리로 이동 + FILES 복사 (아래 셸 설정 필요)
 grove remove      # 워크트리 삭제 (다중 선택 + 브랜치 동시 삭제)
 grove list        # 목록 보기 (active 마커 + 상태/머지 배지)
 grove link        # 파일 복사 (FILES 설정 기반)

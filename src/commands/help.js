@@ -6,7 +6,7 @@ async function help() {
   section('커맨드');
   const commands = [
     ['create',    '새 워크트리 생성 (브랜치 선택/생성 포함)'],
-    ['cd [name]', '워크트리로 이동 (shell-init 필요)'],
+    ['cd [name]', '워크트리로 이동 + 파일 복사 (shell-init 필요)'],
     ['remove',    '워크트리 삭제'],
     ['list',      '워크트리 목록 + 현재 상태'],
     ['link',      '설정된 파일 복사 (FILES)'],

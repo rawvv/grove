@@ -2,8 +2,9 @@ const prompts = require('prompts');
 const { colors } = require('../ui/output');
 const { getWorktreesExcludeBare } = require('../services/worktree');
 const { isBareRepoExists } = require('../services/git');
-const { findRootDir, getBareDir, setActivePath } = require('../utils/config-file');
+const { findRootDir, getBareDir, setActivePath, loadConfig } = require('../utils/config-file');
 const { switchDocker } = require('../services/docker');
+const { copyFilesToWorktree } = require('../services/symlink');
 
 // stdout은 경로 전용 — 로그와 프롬프트는 전부 stderr로 보낸다
 const err = (text) => process.stderr.write(`  ${colors.error('✗')} ${text}\n`);
@@ -16,6 +17,15 @@ function findWorktree(worktrees, query) {
   return worktrees.find(wt => wt.name.toLowerCase() === q)
     || worktrees.find(wt => wt.name.toLowerCase().includes(q))
     || worktrees.find(wt => (wt.branch || '').toLowerCase().includes(q));
+}
+
+// docker가 워크트리 .env를 읽으므로 전환 전에 복사
+async function copyConfiguredFiles(rootDir, worktreeName) {
+  const files = loadConfig(rootDir).FILES || [];
+  const results = await copyFilesToWorktree(rootDir, worktreeName, files);
+  for (const r of results) {
+    if (!r.success) err(`파일 복사 실패: ${r.mapping} (${r.error})`);
+  }
 }
 
 /**
@@ -68,6 +78,7 @@ async function cd(query) {
   }
 
   setActivePath(rootDir, target.path);
+  await copyConfiguredFiles(rootDir, target.name);
   const docker = await switchDocker(rootDir, target.name, { quiet: true });
   if (docker.ok === false) err(`docker compose up 실패: ${docker.error}`);
   process.stdout.write(`${target.path}\n`);
