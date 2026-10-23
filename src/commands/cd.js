@@ -8,6 +8,7 @@ const { copyFilesToWorktree } = require('../services/symlink');
 
 // stdout은 경로 전용 — 로그와 프롬프트는 전부 stderr로 보낸다
 const err = (text) => process.stderr.write(`  ${colors.error('✗')} ${text}\n`);
+const ok = (text) => process.stderr.write(`  ${colors.success('✓')} ${text}\n`);
 
 /**
  * 이름/브랜치로 워크트리 찾기 (정확 일치 → 부분 일치)
@@ -23,6 +24,8 @@ function findWorktree(worktrees, query) {
 async function copyConfiguredFiles(rootDir, worktreeName) {
   const files = loadConfig(rootDir).FILES || [];
   const results = await copyFilesToWorktree(rootDir, worktreeName, files);
+  const copiedNames = results.filter(r => r.success).map(r => r.mapping.split(':')[1]);
+  if (copiedNames.length > 0) ok(`파일 연결 완료: ${copiedNames.join(', ')}`);
   for (const r of results) {
     if (!r.success) err(`파일 복사 실패: ${r.mapping} (${r.error})`);
   }
