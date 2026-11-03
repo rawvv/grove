@@ -2,10 +2,11 @@ const fs = require('fs');
 const path = require('path');
 const net = require('net');
 const execa = require('execa');
-const { loadConfig, getActivePath } = require('../utils/config-file');
+const { loadConfig, getActivePath, getBareDir } = require('../utils/config-file');
 
 const COMPOSE_NAMES = ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml'];
 const ENV_KEY = 'GROVE_WORKTREE';
+const ROOT_COMPOSE_HEADER = '# grove가 생성한 파일';
 
 /**
  * compose 파일의 최상위 섹션별 자식 키와 서비스별 short syntax 포트를 뽑는다
@@ -83,19 +84,20 @@ function isPortFree(port) {
   });
 }
 
-async function findFreePort(startPort, reserved) {
+async function findFreePort(startPort, reserved, ownPorts) {
   for (let port = startPort; port < startPort + 100; port++) {
-    if (!reserved.has(port) && await isPortFree(port)) return port;
+    if (reserved.has(port)) continue;
+    if (ownPorts.has(port) || await isPortFree(port)) return port;
   }
   return null;
 }
 
 /**
  * 레포 compose의 호스트 포트 중 사용 중인 것을 빈 포트로 바꾼 PORTS 항목 생성
- * ponytail: 생성 시점 기준. 꺼져 있던 다른 bare가 나중에 뜨면 충돌 가능 → grove docker로 재생성
+ * @param {Set<number>} ownPorts - 이 프로젝트 컨테이너가 이미 잡은 포트. 사용 중으로 보지 않음
  * @returns {Promise<{ports: string[], reassigned: string[]}>} ports는 "서비스:호스트:컨테이너" 형식
  */
-async function assignFreePorts(parsed, manualPorts = []) {
+async function assignFreePorts(parsed, manualPorts = [], ownPorts = new Set()) {
   const manualServices = Object.keys(groupPortsByService(manualPorts));
   const reserved = new Set(manualPorts.map(entry => Number(entry.split(':').slice(-2)[0])));
   const ports = [];
@@ -109,7 +111,7 @@ async function assignFreePorts(parsed, manualPorts = []) {
       const parts = mapping.split(':');
       const hostPort = Number(parts[parts.length - 2]);
       if (!Number.isInteger(hostPort)) { serviceMappings.push(mapping); continue; }
-      const freePort = await findFreePort(hostPort, reserved);
+      const freePort = await findFreePort(hostPort, reserved, ownPorts);
       if (freePort === null) { serviceMappings.push(mapping); continue; }
       reserved.add(freePort);
       if (freePort !== hostPort) {
@@ -131,7 +133,7 @@ async function assignFreePorts(parsed, manualPorts = []) {
 function generateRootCompose(parsed, composeName, ports = []) {
   const portsByService = groupPortsByService(ports);
   const lines = [
-    '# grove가 생성한 파일 — 워크트리 전환은 .env의 GROVE_WORKTREE로 결정됩니다',
+    `${ROOT_COMPOSE_HEADER} — 워크트리 전환은 .env의 GROVE_WORKTREE로 결정됩니다`,
     `# 레포의 ${composeName}을 extends로 참조하므로 상대경로는 워크트리 폴더 기준으로 풀립니다`,
     'services:'
   ];
@@ -179,6 +181,20 @@ function writeEnv(rootDir, folder) {
 }
 
 /**
+ * 이 프로젝트 컨테이너가 publish 중인 호스트 포트. docker가 없거나 꺼져 있으면 빈 Set
+ */
+async function getOwnPublishedPorts(rootDir, folder) {
+  try {
+    const { stdout } = await execa('docker', ['compose', ...composeEnvArgs(rootDir, folder), 'ps', '--format', 'json'], { cwd: rootDir });
+    // 최신 compose는 줄마다 객체, 구버전은 배열 한 줄
+    const containers = stdout.split('\n').filter(Boolean).flatMap(line => [].concat(JSON.parse(line)));
+    return new Set(containers.flatMap(container => (container.Publishers || []).map(publisher => publisher.PublishedPort)));
+  } catch {
+    return new Set();
+  }
+}
+
+/**
  * 단일 컨테이너 모드 셋업: 루트 compose + .env 생성
  * @returns {Promise<{ok: boolean, reason?: string, services?: string[], unknownPortServices?: string[], reassignedPorts?: string[], composePath?: string}>}
  */
@@ -193,10 +209,12 @@ async function setupSingleMode(rootDir, bareDir, { overwrite = false } = {}) {
   if (parsed.services.length === 0) return { ok: false, reason: 'no-services' };
 
   const config = loadConfig(rootDir);
-  const autoPorts = await assignFreePorts(parsed, config.PORTS);
-  fs.writeFileSync(composePath, generateRootCompose(parsed, source.name, [...config.PORTS, ...autoPorts.ports]));
   const active = getActivePath(rootDir);
-  writeEnv(rootDir, active ? path.basename(active) : config.DEFAULT_BASE_BRANCH);
+  const folder = active ? path.basename(active) : config.DEFAULT_BASE_BRANCH;
+  const ownPorts = await getOwnPublishedPorts(rootDir, folder);
+  const autoPorts = await assignFreePorts(parsed, config.PORTS, ownPorts);
+  fs.writeFileSync(composePath, generateRootCompose(parsed, source.name, [...config.PORTS, ...autoPorts.ports]));
+  writeEnv(rootDir, folder);
   const unknownPortServices = Object.keys(groupPortsByService(config.PORTS))
     .filter(service => !parsed.services.includes(service));
   return { ok: true, services: parsed.services, unknownPortServices, reassignedPorts: autoPorts.reassigned, composePath };
@@ -216,19 +234,28 @@ function composeEnvArgs(rootDir, folder) {
   return args;
 }
 
+function isGroveRootCompose(rootDir) {
+  const composePath = path.join(rootDir, 'docker-compose.yml');
+  return fs.existsSync(composePath) && fs.readFileSync(composePath, 'utf-8').startsWith(ROOT_COMPOSE_HEADER);
+}
+
 /**
- * 워크트리 전환: .env 갱신 후 루트에서 compose up
+ * 워크트리 전환: 루트 compose 재생성 → .env 갱신 → 루트에서 compose up
  * @param {boolean} [opts.quiet] - stdout을 비워야 할 때(grove cd) docker 출력을 stderr로
  */
 async function switchDocker(rootDir, folder, { quiet = false } = {}) {
   if (loadConfig(rootDir).DOCKER_MODE !== 'single') return { skipped: true };
+  // 그새 다른 bare가 잡은 포트 회피. 사용자가 직접 쓴 파일은 덮지 않음
+  const regenerated = isGroveRootCompose(rootDir)
+    ? await setupSingleMode(rootDir, getBareDir(rootDir), { overwrite: true })
+    : {};
   writeEnv(rootDir, folder);
   try {
     await execa('docker', ['compose', ...composeEnvArgs(rootDir, folder), 'up', '-d'], {
       cwd: rootDir,
       stdio: quiet ? ['inherit', 2, 2] : 'inherit'
     });
-    return { ok: true };
+    return { ok: true, reassignedPorts: regenerated.reassignedPorts || [] };
   } catch (err) {
     return { ok: false, error: err.shortMessage || err.message };
   }

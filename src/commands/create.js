@@ -237,6 +237,7 @@ async function create() {
     const docker = await switchDocker(rootDir, folder);
     if (docker.ok) msg.ok(`컨테이너가 ${colors.bold(folder)} 워크트리를 바라봅니다`);
     else msg.err(`docker compose up 실패: ${docker.error}`);
+    for (const change of docker.reassignedPorts || []) msg.info(`포트 사용 중 → 빈 포트로 교체: ${change}`);
   }
 }
 
