@@ -78,8 +78,9 @@ async function config() {
     msg.ok('추가됨');
   }
 
-  // 설정 저장
+  // 묻지 않은 항목(DOCKER_MODE, PORTS, 훅 명령)은 기존 값 유지
   const newConfig = {
+    ...loadConfig(rootDir),
     BARE_DIR: bareDir || DEFAULTS.BARE_DIR,
     DEFAULT_BASE_BRANCH: baseBranch || DEFAULTS.BASE_BRANCH,
     DEFAULT_BRANCH_PREFIX: branchPrefix || DEFAULTS.BRANCH_PREFIX,
