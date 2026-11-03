@@ -33,6 +33,7 @@ function loadConfig(rootDir = process.cwd()) {
     DEFAULT_BASE_BRANCH: DEFAULTS.BASE_BRANCH,
     DEFAULT_BRANCH_PREFIX: DEFAULTS.BRANCH_PREFIX,
     FILES: [],
+    PORTS: [],
     PRE_SWITCH_COMMANDS: [],
     POST_CREATE_COMMANDS: [],
     DOCKER_MODE: ''
@@ -77,6 +78,13 @@ function loadConfig(rootDir = process.cwd()) {
       config.FILES = Array.from(linkMatches, m => m[1]);
     }
 
+    // PORTS 파싱 (서비스:호스트포트:컨테이너포트)
+    const portsMatch = content.match(/PORTS=\(\s*([\s\S]*?)\s*\)/);
+    if (portsMatch) {
+      const portMatches = portsMatch[1].matchAll(/"([^"]+)"/g);
+      config.PORTS = Array.from(portMatches, m => m[1]);
+    }
+
     // PRE_SWITCH_COMMANDS 파싱
     const preMatch = content.match(/PRE_SWITCH_COMMANDS=\(\s*([\s\S]*?)\s*\)/);
     if (preMatch) {
@@ -112,6 +120,10 @@ function saveConfig(config, rootDir = process.cwd()) {
     .map(s => `  "${s}"`)
     .join('\n');
 
+  const portsStr = (config.PORTS || [])
+    .map(s => `  "${s}"`)
+    .join('\n');
+
   const preStr = (config.PRE_SWITCH_COMMANDS || [])
     .map(s => `  "${s}"`)
     .join('\n');
@@ -129,6 +141,10 @@ DOCKER_MODE="${config.DOCKER_MODE || ''}"
 
 FILES=(
 ${filesStr}
+)
+
+PORTS=(
+${portsStr}
 )
 
 PRE_SWITCH_COMMANDS=(

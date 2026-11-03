@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const net = require('net');
 const execa = require('execa');
 const { loadConfig, getActivePath } = require('../utils/config-file');
 
@@ -7,20 +8,28 @@ const COMPOSE_NAMES = ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml
 const ENV_KEY = 'GROVE_WORKTREE';
 
 /**
- * compose 파일의 최상위 섹션별 자식 키만 뽑는다
- * ponytail: 2-space 블록 YAML만 지원. 깨지면 `docker compose config --format json`으로 교체
- * @returns {{services: string[], volumes: string[], networks: string[]}}
+ * compose 파일의 최상위 섹션별 자식 키와 서비스별 short syntax 포트를 뽑는다
+ * ponytail: 2-space 블록 YAML·short syntax 포트만 지원. 깨지면 `docker compose config --format json`으로 교체
+ * @returns {{services: string[], volumes: string[], networks: string[], ports: Object<string, string[]>}}
  */
 function parseCompose(content) {
-  const out = { services: [], volumes: [], networks: [] };
+  const out = { services: [], volumes: [], networks: [], ports: {} };
   let section = null;
+  let service = null;
+  let inPorts = false;
   for (const raw of content.split('\n')) {
     const line = raw.replace(/\s+#.*$/, '').trimEnd();
     if (!line || line.startsWith('#')) continue;
     const top = line.match(/^([\w-]+):/);
-    if (top) { section = out[top[1]] ? top[1] : null; continue; }
+    if (top) { section = out[top[1]] ? top[1] : null; service = null; continue; }
     const child = section && line.match(/^  ([\w.-]+):/);
-    if (child) out[section].push(child[1]);
+    if (child) { out[section].push(child[1]); service = section === 'services' ? child[1] : null; continue; }
+    if (!service) continue;
+    if (/^    \S/.test(line)) { inPorts = line === '    ports:'; continue; }
+    const port = inPorts && line.match(/^      - ["']?([^"'\s]+)["']?$/);
+    if (!port) continue;
+    if (!out.ports[service]) out.ports[service] = [];
+    out.ports[service].push(port[1]);
   }
   return out;
 }
@@ -50,9 +59,77 @@ async function readComposeSource(rootDir, bareDir) {
 }
 
 /**
+ * PORTS 항목("서비스:호스트:컨테이너")을 서비스별 포트 목록으로 묶는다
+ * @returns {Object<string, string[]>}
+ */
+function groupPortsByService(ports = []) {
+  const portsByService = {};
+  for (const entry of ports) {
+    const [service, ...mapping] = entry.split(':');
+    if (mapping.length === 0) continue;
+    if (!portsByService[service]) portsByService[service] = [];
+    portsByService[service].push(mapping.join(':'));
+  }
+  return portsByService;
+}
+
+function isPortFree(port) {
+  return new Promise(resolve => {
+    const server = net.createServer();
+    // EACCES(특권 포트) 등은 판단 불가라 비어 있다고 간주
+    server.once('error', err => resolve(err.code !== 'EADDRINUSE'));
+    server.once('listening', () => server.close(() => resolve(true)));
+    server.listen(port);
+  });
+}
+
+async function findFreePort(startPort, reserved) {
+  for (let port = startPort; port < startPort + 100; port++) {
+    if (!reserved.has(port) && await isPortFree(port)) return port;
+  }
+  return null;
+}
+
+/**
+ * 레포 compose의 호스트 포트 중 사용 중인 것을 빈 포트로 바꾼 PORTS 항목 생성
+ * ponytail: 생성 시점 기준. 꺼져 있던 다른 bare가 나중에 뜨면 충돌 가능 → grove docker로 재생성
+ * @returns {Promise<{ports: string[], reassigned: string[]}>} ports는 "서비스:호스트:컨테이너" 형식
+ */
+async function assignFreePorts(parsed, manualPorts = []) {
+  const manualServices = Object.keys(groupPortsByService(manualPorts));
+  const reserved = new Set(manualPorts.map(entry => Number(entry.split(':').slice(-2)[0])));
+  const ports = [];
+  const reassigned = [];
+
+  for (const [service, mappings] of Object.entries(parsed.ports)) {
+    if (manualServices.includes(service)) continue;
+    const serviceMappings = [];
+    let changed = false;
+    for (const mapping of mappings) {
+      const parts = mapping.split(':');
+      const hostPort = Number(parts[parts.length - 2]);
+      if (!Number.isInteger(hostPort)) { serviceMappings.push(mapping); continue; }
+      const freePort = await findFreePort(hostPort, reserved);
+      if (freePort === null) { serviceMappings.push(mapping); continue; }
+      reserved.add(freePort);
+      if (freePort !== hostPort) {
+        changed = true;
+        reassigned.push(`${service} ${hostPort}→${freePort}`);
+      }
+      parts[parts.length - 2] = String(freePort);
+      serviceMappings.push(parts.join(':'));
+    }
+    // 바뀐 서비스만 !override로 출력
+    if (changed) ports.push(...serviceMappings.map(mapping => `${service}:${mapping}`));
+  }
+  return { ports, reassigned };
+}
+
+/**
  * 루트용 compose 파일 생성 — 레포 compose를 extends로 참조
  */
-function generateRootCompose(parsed, composeName) {
+function generateRootCompose(parsed, composeName, ports = []) {
+  const portsByService = groupPortsByService(ports);
   const lines = [
     '# grove가 생성한 파일 — 워크트리 전환은 .env의 GROVE_WORKTREE로 결정됩니다',
     `# 레포의 ${composeName}을 extends로 참조하므로 상대경로는 워크트리 폴더 기준으로 풀립니다`,
@@ -60,6 +137,10 @@ function generateRootCompose(parsed, composeName) {
   ];
   for (const svc of parsed.services) {
     lines.push(`  ${svc}:`, '    extends:', `      file: \${${ENV_KEY}}/${composeName}`, `      service: ${svc}`);
+    const servicePorts = portsByService[svc];
+    if (!servicePorts) continue;
+    // extends로 합쳐지는 레포 포트를 지우고 교체
+    lines.push('    ports: !override', ...servicePorts.map(port => `      - "${port}"`));
   }
   for (const key of ['volumes', 'networks']) {
     if (parsed[key].length === 0) continue;
@@ -99,7 +180,7 @@ function writeEnv(rootDir, folder) {
 
 /**
  * 단일 컨테이너 모드 셋업: 루트 compose + .env 생성
- * @returns {Promise<{ok: boolean, reason?: string, services?: string[], composePath?: string}>}
+ * @returns {Promise<{ok: boolean, reason?: string, services?: string[], unknownPortServices?: string[], reassignedPorts?: string[], composePath?: string}>}
  */
 async function setupSingleMode(rootDir, bareDir, { overwrite = false } = {}) {
   const composePath = path.join(rootDir, 'docker-compose.yml');
@@ -111,10 +192,14 @@ async function setupSingleMode(rootDir, bareDir, { overwrite = false } = {}) {
   const parsed = parseCompose(source.content);
   if (parsed.services.length === 0) return { ok: false, reason: 'no-services' };
 
-  fs.writeFileSync(composePath, generateRootCompose(parsed, source.name));
+  const config = loadConfig(rootDir);
+  const autoPorts = await assignFreePorts(parsed, config.PORTS);
+  fs.writeFileSync(composePath, generateRootCompose(parsed, source.name, [...config.PORTS, ...autoPorts.ports]));
   const active = getActivePath(rootDir);
-  writeEnv(rootDir, active ? path.basename(active) : loadConfig(rootDir).DEFAULT_BASE_BRANCH);
-  return { ok: true, services: parsed.services, composePath };
+  writeEnv(rootDir, active ? path.basename(active) : config.DEFAULT_BASE_BRANCH);
+  const unknownPortServices = Object.keys(groupPortsByService(config.PORTS))
+    .filter(service => !parsed.services.includes(service));
+  return { ok: true, services: parsed.services, unknownPortServices, reassignedPorts: autoPorts.reassigned, composePath };
 }
 
 /**
@@ -149,4 +234,4 @@ async function switchDocker(rootDir, folder, { quiet = false } = {}) {
   }
 }
 
-module.exports = { parseCompose, upsertEnv, generateRootCompose, setupSingleMode, switchDocker, readEnvWorktree, composeEnvArgs, ENV_KEY };
+module.exports = { parseCompose, upsertEnv, generateRootCompose, assignFreePorts, setupSingleMode, switchDocker, readEnvWorktree, composeEnvArgs, ENV_KEY };

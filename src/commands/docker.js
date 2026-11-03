@@ -48,6 +48,12 @@ async function docker() {
     if (!result.kept) {
       msg.ok(`생성: ${colors.bold('docker-compose.yml')} (services: ${result.services.join(', ')})`);
       msg.ok(`생성: ${colors.bold('.env')} → ${ENV_KEY}`);
+      for (const change of result.reassignedPorts) {
+        msg.info(`포트 사용 중 → 빈 포트로 교체: ${change}`);
+      }
+      for (const service of result.unknownPortServices) {
+        msg.warn(`PORTS의 '${service}' 서비스가 레포 compose에 없어 무시했습니다`);
+      }
     }
   } else if (mode === 'perWorktree') {
     msg.info('.worktree.config의 PRE_SWITCH_COMMANDS / POST_CREATE_COMMANDS를 사용합니다');
