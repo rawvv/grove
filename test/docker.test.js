@@ -92,4 +92,11 @@ test('assignFreePorts: 사용 중인 호스트 포트만 빈 포트로 교체, P
   assert.notEqual(freePort, busyPort);
   assert.deepEqual(ports, [`web:${freePort}:80`, 'web:9:9/udp']);
   assert.deepEqual(reassigned, [`web ${busyPort}→${freePort}`]);
+
+  // 자기 컨테이너가 잡은 포트는 그대로 유지
+  const blocker2 = net.createServer().listen(busyPort);
+  await new Promise(resolve => blocker2.once('listening', resolve));
+  const own = await assignFreePorts({ ports: { web: [`${busyPort}:80`] } }, [], new Set([busyPort]));
+  blocker2.close();
+  assert.deepEqual(own, { ports: [], reassigned: [] });
 });

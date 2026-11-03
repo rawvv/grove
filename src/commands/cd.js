@@ -84,6 +84,7 @@ async function cd(query) {
   await copyConfiguredFiles(rootDir, target.name);
   const docker = await switchDocker(rootDir, target.name, { quiet: true });
   if (docker.ok === false) err(`docker compose up 실패: ${docker.error}`);
+  for (const change of docker.reassignedPorts || []) ok(`포트 사용 중 → 빈 포트로 교체: ${change}`);
   process.stdout.write(`${target.path}\n`);
 }
 
