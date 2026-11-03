@@ -39,7 +39,7 @@ async function help() {
     '  ".env:.env"                  # 소스:대상 (worktree 생성 시 복사)',
     ')',
     '',
-    'PORTS=(                        # single 모드 호스트 포트 교체 (서비스:호스트:컨테이너)',
+    'PORTS=(                        # 비우면 사용 중 포트 자동 교체, 고정할 서비스만 지정',
     '  "nginx:8100:80"              # !override 사용, Docker Compose 2.24.4+ 필요',
     ')',
     '',
