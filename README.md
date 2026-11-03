@@ -162,6 +162,12 @@ FILES=(
   ".env.local:backend/.env.local"
 )
 
+# single 모드에서 호스트 포트 교체 (서비스:호스트포트:컨테이너포트)
+PORTS=(
+  "nginx:8100:80"
+  "mysql:3308:3306"
+)
+
 # 새 워크트리 생성 전 실행 (기존 환경 정리)
 PRE_SWITCH_COMMANDS=(
   "docker-compose down"
@@ -196,6 +202,8 @@ services:
       service: app
 ```
 
+- bare 여러 개를 동시에 띄워 호스트 포트가 겹치면 `PORTS`로 루트에서만 바꿉니다. 해당 서비스에 `ports: !override`가 생성되어 레포 포트를 대체합니다. **`!override`는 Docker Compose 2.24.4+ 필요.**
+- `PORTS`를 바꾼 뒤에는 `grove docker` → 단일 컨테이너 → 덮어쓰기를 선택하면 루트 compose가 다시 생성됩니다.
 - `grove init` 마지막 단계에서도 같은 선택지가 나옵니다. 워크트리가 없으면 bare repo의 HEAD에서 compose를 읽습니다.
 - compose의 `${VAR}` 보간값은 `<워크트리>/.env`에서 읽습니다. grove가 `up` 시 `--env-file`로 함께 넘기므로 직접 `up` 할 때는 `docker compose --env-file <워크트리>/.env --env-file .env up -d` 형태로 실행하세요.
 - `docker compose logs/exec/down` 같은 직접 명령은 **루트 폴더에서** 실행하세요. 워크트리 안에서 `up` 하면 컨테이너가 하나 더 생깁니다.
