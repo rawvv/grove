@@ -56,3 +56,17 @@ test('composeEnvArgs: 워크트리 .env가 있으면 먼저, 루트 .env는 항�
   assert.deepEqual(composeEnvArgs(root, 'wt'),
     ['--env-file', path.join(root, 'wt', '.env'), '--env-file', path.join(root, '.env')]);
 });
+
+test('generateRootCompose: PORTS 있는 서비스만 ports !override 블록 출력', () => {
+  const parsed = { services: ['nginx', 'mysql', 'redis'], volumes: [], networks: [] };
+  const ports = ['nginx:8100:80', 'nginx:8443:443', 'mysql:3308:3306', 'ghost:1:1'];
+
+  const withPorts = generateRootCompose(parsed, 'docker-compose.yml', ports);
+  assert.match(withPorts, /service: nginx\n    ports: !override\n      - "8100:80"\n      - "8443:443"\n/);
+  assert.match(withPorts, /service: mysql\n    ports: !override\n      - "3308:3306"\n/);
+  assert.match(withPorts, /service: redis\n$/);
+  assert.doesNotMatch(withPorts, /ghost/);
+
+  const withoutPorts = generateRootCompose(parsed, 'docker-compose.yml');
+  assert.doesNotMatch(withoutPorts, /ports:/);
+});
